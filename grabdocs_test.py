@@ -102,14 +102,14 @@ try:
     driver.get("https://app.grabdocs.com/workspaces")
     presentation_pause()
 
-    # 2. Open the Create Workspace Modal
+    #Open the Create Workspace Modal
     create_ws_btn = wait.until(EC.element_to_be_clickable(
         (By.XPATH, "//button[contains(., 'Create Workspace')]")
     ))
     create_ws_btn.click()
     presentation_pause()
 
-    # 3. Fill out the form
+    #Fill out the form
     workspace_name = "E2E Presentation Workspace"
     
     name_input = wait.until(EC.visibility_of_element_located(
@@ -117,7 +117,7 @@ try:
     ))
     name_input.send_keys(workspace_name)
     
-    # Using a wildcard `*` here because descriptions are sometimes <textarea> instead of <input>
+    
     desc_input = driver.find_element(
         By.XPATH, "//*[@placeholder='Enter workspace description (required)']"
     )
@@ -136,37 +136,30 @@ try:
     ))
     presentation_pause() # Pause so the class can see the created workspace
 
-    # 4. Find and Delete the specific workspace
-    
-    # Step A: Isolate the specific card containing our workspace name
-    # Using normalize-space(.) handles any weird React text-wrapping
+    #Find and Delete the specific workspace
     workspace_card = wait.until(EC.presence_of_element_located(
         (By.XPATH, f"//*[contains(normalize-space(.), '{workspace_name}')]/ancestor::*[contains(@class, 'rounded') or contains(@class, 'border')][1]")
     ))
     
-    # Step B: Find ALL buttons strictly inside this specific card
+    # Find ALL buttons strictly inside this specific card
     card_buttons = workspace_card.find_elements(By.TAG_NAME, "button")
     
-    # Step C: The trash icon is the right-most button, making it the last item in our list.
-    # Python's negative indexing [-1] easily grabs the last element.
+    # trash the workspace
     delete_btn = card_buttons[-1]
     
-    # Step D: The "Scroll Into View" trick
-    # This forces the browser to center the button on the screen, guaranteeing 
-    # no other UI elements (like sticky nav bars) intercept the click.
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", delete_btn)
     time.sleep(0.5) # Brief pause to allow the scroll animation to finish
     
     # Now execute the click
     delete_btn.click()
-    presentation_pause() # Pause so the class sees the native browser alert pop up
+    presentation_pause()
 
-    # 5. Handle the Native Browser Alert
+    #Handle the Native Browser Alert
     alert = wait.until(EC.alert_is_present())
     print(f"Intercepted Alert: {alert.text}")
     alert.accept() 
     
-    # 6. Verify Deletion
+    #Verify Deletion
     wait.until(EC.invisibility_of_element_located(
         (By.XPATH, f"//*[contains(normalize-space(.), '{workspace_name}')]")
     ))
