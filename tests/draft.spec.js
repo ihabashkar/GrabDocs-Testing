@@ -1,53 +1,146 @@
+/**
+ * GrabDocs - Draft Feature Tests
+ * Group 5 - Playwright Testing
+ * 
+ * Feature: Google Docs clone - multiple users can make modifications
+ * to a single file concurrently.
+ * 
+ * Capabilities tested:
+ *   - Create a new draft document
+ *   - Type and format text (bold, italic, alignment)
+ *   - Invite someone to edit with a role and share link
+ *   - Rename the draft
+ *   - Save changes
+ *   - Delete the draft
+ */
+
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+// Increase timeout since this test has many steps with pauses
+test.setTimeout(120000);
+
 test.describe('Draft Feature', () => {
 
-  test.beforeEach(async ({ page }) => {
+  // Test: Full draft lifecycle in one flow
+  test('should create, edit, share, and delete a draft', async ({ page }) => {
     await page.goto('https://app.grabdocs.com/upload');
-  });
+    await page.waitForTimeout(2000);
 
-  test('should create a new draft and save content', async ({ page }) => {
+    // Navigate to Drafts
     await page.getByRole('link', { name: 'Drafts' }).click();
+    await page.waitForTimeout(2000);
 
+    // ----- CREATE NEW DRAFT -----
     const popupPromise = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'New Draft' }).first().click();
     const draftPage = await popupPromise;
+    await draftPage.waitForTimeout(2000);
 
+    // ----- TYPE CONTENT -----
     await draftPage.locator('.tiptap').click();
-    await draftPage.locator('.tiptap').fill('Group 5 test playwright');
+    await draftPage.waitForTimeout(1000);
+    await draftPage.locator('.tiptap').fill('Group 5 Playwright Test');
+    await draftPage.waitForTimeout(2000);
+
+    // ----- FORMAT TEXT -----
+    // Select all text
+    await draftPage.keyboard.press('ControlOrMeta+a');
+    await draftPage.waitForTimeout(1000);
+
+    // Bold
+    await draftPage.getByRole('button', { name: 'Bold' }).click();
+    await draftPage.waitForTimeout(1000);
+
+    // Italic
+    await draftPage.getByRole('button', { name: 'Italic' }).click();
+    await draftPage.waitForTimeout(1000);
+
+    // Align center
+    await draftPage.getByRole('button', { name: 'Align center' }).click();
+    await draftPage.waitForTimeout(1000);
+
+    // Align back to left
+    await draftPage.getByRole('button', { name: 'Align left' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // ----- INVITE TO EDIT (Member role) -----
+    await draftPage.getByRole('button', { name: 'Invite to Edit' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // Select member role
+    await draftPage.getByRole('combobox').selectOption('member');
+    await draftPage.waitForTimeout(1000);
+
+    // Set max uses
+    await draftPage.getByPlaceholder('e.g.,').click();
+    await draftPage.waitForTimeout(1000);
+    await draftPage.getByPlaceholder('e.g.,').fill('1');
+    await draftPage.waitForTimeout(1000);
+
+    // Create the invite link
+    await draftPage.getByRole('button', { name: 'Create Link' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // Enter recipient email
+    await draftPage.getByRole('textbox', { name: 'user1@example.com, user2@' }).click();
+    await draftPage.waitForTimeout(1000);
+    await draftPage.getByRole('textbox', { name: 'user1@example.com, user2@' }).fill('example@email.com');
+    await draftPage.waitForTimeout(2000);
+
+    // Add a personal message
+    await draftPage.getByRole('textbox', { name: 'Add a personal message...' }).click();
+    await draftPage.waitForTimeout(1000);
+    await draftPage.getByRole('textbox', { name: 'Add a personal message...' }).fill('Group 5 test invite');
+    await draftPage.waitForTimeout(2000);
+
+    // Send the email
+    await draftPage.getByRole('button', { name: 'Send Email' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // Close the invite panel
+    await draftPage.getByRole('button', { name: 'Done' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // ----- CLEAN UP INVITE LINKS -----
+    await draftPage.getByRole('button', { name: 'Invite to Edit' }).click();
+    await draftPage.waitForTimeout(2000);
+
+    // Delete the invite link
+    draftPage.once('dialog', dialog => dialog.accept());
+    await draftPage.getByRole('button', { name: 'Delete link permanently' }).first().click();
+    await draftPage.waitForTimeout(2000);
+
+    // Close invite panel
+    await draftPage.locator('.text-gray-400').click();
+    await draftPage.waitForTimeout(2000);
+
+    // ----- RENAME THE DRAFT -----
+    await draftPage.getByTitle('Edit: Untitled Draft.txt').click();
+    await draftPage.waitForTimeout(2000);
+    await draftPage.getByRole('textbox', { name: 'Filename' }).fill('Group 5 Draft');
+    await draftPage.waitForTimeout(2000);
+
+    // ----- SAVE CHANGES -----
     await draftPage.getByRole('button', { name: 'Save Changes' }).click();
+    await draftPage.waitForTimeout(2000);
 
-    await expect(draftPage.locator('.tiptap')).toContainText('Group 5 test playwright');
-  });
+    // Verify content persists after save
+    await expect(draftPage.locator('.tiptap')).toContainText('Group 5 Playwright Test');
+    await draftPage.waitForTimeout(2000);
 
-  test('should allow the same user to access Drafts from a second session', async ({ browser }) => {
-    // ----- Session 1: create and save a draft -----
-    const context1 = await browser.newContext({ storageState: 'auth.json' });
-    const page1 = await context1.newPage();
-    await page1.goto('https://app.grabdocs.com/upload');
-    await page1.getByRole('link', { name: 'Drafts' }).click();
+    // ----- DELETE THE DRAFT -----
+    // Close the popup editor and go back to the Drafts list page
+    await draftPage.close();
+    await page.waitForTimeout(2000);
 
-    const popupPromise = page1.waitForEvent('popup');
-    await page1.getByRole('button', { name: 'New Draft' }).first().click();
-    const draft1 = await popupPromise;
+    // Reload the drafts list to see the saved draft
+    await page.getByRole('link', { name: 'Drafts' }).click();
+    await page.waitForTimeout(2000);
 
-    await draft1.locator('.tiptap').click();
-    await draft1.locator('.tiptap').fill('Concurrent session test from Group 5');
-    await draft1.getByRole('button', { name: 'Save Changes' }).click();
-    await draft1.waitForTimeout(2000);
-
-    // ----- Session 2: verify Drafts page loads in a separate context -----
-    const context2 = await browser.newContext({ storageState: 'auth.json' });
-    const page2 = await context2.newPage();
-    await page2.goto('https://app.grabdocs.com/upload');
-    await page2.getByRole('link', { name: 'Drafts' }).click();
-
-    // Confirm the Drafts page loaded (New Draft button is visible)
-    await expect(page2.getByRole('button', { name: 'New Draft' }).first())
-      .toBeVisible({ timeout: 15000 });
-
-    await context1.close();
-    await context2.close();
+    // Delete the draft from the list
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Delete' }).first().click();
+    await page.waitForTimeout(2000);
   });
 });

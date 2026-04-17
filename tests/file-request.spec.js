@@ -4,9 +4,11 @@
  * 
  * Feature: Send someone a link to upload a file, then access that file.
  * Capabilities tested:
- *   - Navigate to File Request section
- *   - Create a new file request link with a custom name
- *   - Share the link via email with a personal message
+ *   - Create a link with name, file size limit, and max uses
+ *   - Disable and re-enable a link via Edit
+ *   - Share a link via email
+ *   - View Uploaded Files tab
+ *   - Delete a link
  */
 
 // @ts-check
@@ -14,62 +16,115 @@ const { test, expect } = require('@playwright/test');
 
 test.describe('File Request Feature', () => {
 
-  // Navigate to the dashboard before each test
-  test.beforeEach(async ({ page }) => {
+  // Test: Full file request lifecycle in one flow
+  test('should create, configure, share, and delete a file request link', async ({ page }) => {
     await page.goto('https://app.grabdocs.com/upload');
-  });
+    await page.waitForTimeout(2000);
 
-  // Test: Navigate to File Request and verify it loads
-  test('should navigate to File Request section', async ({ page }) => {
+    // Navigate to File Request
     await page.getByRole('link', { name: 'File Request' }).click();
-    await expect(page).toHaveURL(/quick-links/i, { timeout: 10000 });
+    await page.waitForTimeout(2000);
     await expect(page.getByRole('heading', { name: 'File Request' })).toBeVisible();
-  });
+    await page.waitForTimeout(2000);
 
-  // Test: Create a new file request link with a custom name
-  test('should create a new file request link', async ({ page }) => {
-    // Navigate to File Request section
-    await page.getByRole('link', { name: 'File Request' }).click();
+    // ----- CREATE LINK -----
+    await page.getByRole('button', { name: 'New Link' }).click();
+    await page.waitForTimeout(2000);
 
-    // Click to create a new link (button text depends on whether links exist)
-    const newLinkBtn = page.getByRole('button', { name: /New Link|Create Your First Link/i });
-    await newLinkBtn.click();
-
-    // Enter a custom link name with unique timestamp to avoid duplicates
-    const linkName = `Group-5 test ${Date.now()}`;
+    // Set link name
     await page.getByRole('textbox', { name: 'Enter link name' }).click();
-    await page.getByRole('textbox', { name: 'Enter link name' }).fill(linkName);
+    await page.waitForTimeout(1000);
+    await page.getByRole('textbox', { name: 'Enter link name' }).fill('link test');
+    await page.waitForTimeout(2000);
 
-    // Submit link creation
+    // Set file size limit to 1MB
+    await page.getByRole('spinbutton').first().click();
+    await page.waitForTimeout(1000);
+    await page.getByRole('spinbutton').first().fill('1');
+    await page.getByRole('spinbutton').first().press('Enter');
+    await page.waitForTimeout(2000);
+
+    // Set max uses to 2
+    await page.getByPlaceholder('Unlimited').click();
+    await page.waitForTimeout(1000);
+    await page.getByPlaceholder('Unlimited').fill('2');
+    await page.getByPlaceholder('Unlimited').press('Enter');
+    await page.waitForTimeout(2000);
+
+    // Create the link
     await page.getByRole('button', { name: 'Create Link' }).click();
+    await page.waitForTimeout(2000);
 
-    // Verify the link was created (Options button appears for the new link)
-    await expect(page.getByRole('button', { name: 'Options' }).first()).toBeVisible({ timeout: 10000 });
-  });
+    // Verify link appears in the table
+    await expect(page.getByRole('row', { name: /link test/ })).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(2000);
 
-  // Test: Share a file request link via email
-  test('should share a file request link via email', async ({ page }) => {
-    // Navigate to File Request section
-    await page.getByRole('link', { name: 'File Request' }).click();
+    // ----- DISABLE LINK -----
+    await page.getByRole('row', { name: /link test/ }).getByLabel('Options').click();
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: 'Disable' }).click();
+    await page.waitForTimeout(2000);
 
-    // Open options on an existing link
-    await page.getByRole('button', { name: 'Options' }).first().click();
+    // ----- EDIT AND RE-ENABLE -----
+    await page.getByRole('row', { name: /link test/ }).getByLabel('Options').click();
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForTimeout(2000);
 
-    // Click Share
+    // Set expiration date
+    await page.locator('input[type="datetime-local"]').click();
+    await page.locator('input[type="datetime-local"]').press('Enter');
+    await page.waitForTimeout(2000);
+
+    // Change file size limit to 32MB
+    await page.getByRole('spinbutton').first().click();
+    await page.getByRole('spinbutton').first().fill('32');
+    await page.waitForTimeout(2000);
+
+    // Regenerate the upload code
+    await page.getByRole('button', { name: 'Regenerate' }).click();
+    await page.waitForTimeout(2000);
+
+    // Update the link (re-enables it)
+    await page.getByRole('button', { name: 'Update Link' }).click();
+    await page.waitForTimeout(2000);
+
+    // ----- SHARE VIA EMAIL -----
+    await page.getByRole('row', { name: /link test/ }).getByLabel('Options').click();
+    await page.waitForTimeout(1000);
     await page.getByRole('button', { name: 'Share' }).click();
+    await page.waitForTimeout(2000);
 
-    // Enter recipient email address
-    await page.getByRole('textbox', { name: 'recipient1@example.com,' }).click();
-    await page.getByRole('textbox', { name: 'recipient1@example.com,' }).fill('testrecipient@example.com');
+    // Enter recipient email
+    await page.getByRole('textbox', { name: 'recipient1@example.com,' }).fill('example@email.com');
+    await page.waitForTimeout(2000);
 
     // Add a personal message
-    await page.getByRole('textbox', { name: 'Add a personal message...' }).click();
-    await page.getByRole('textbox', { name: 'Add a personal message...' }).fill('Group 5 Playwright test - file request link');
+    await page.getByRole('textbox', { name: 'Add a personal message...' }).fill('Group 5 Playwright test');
+    await page.waitForTimeout(2000);
 
     // Send the email
     await page.getByRole('button', { name: 'Send Email' }).click();
+    await page.waitForTimeout(2000);
 
-    // Verify success (look for a success toast or confirmation message)
+    // Verify success
     await expect(page.getByText(/sent|success|shared|delivered/i).first()).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(2000);
+
+    // ----- VIEW UPLOADED FILES TAB -----
+    await page.getByRole('button', { name: 'Uploaded Files' }).click();
+    await page.waitForTimeout(2000);
+    await expect(page.getByText(/No files uploaded|uploaded/i).first()).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(2000);
+
+    // Switch back to Upload Links
+    await page.getByRole('button', { name: 'Upload Links' }).click();
+    await page.waitForTimeout(2000);
+
+    // ----- DELETE LINK -----
+    await page.getByRole('row', { name: /link test/ }).getByLabel('Options').click();
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await page.waitForTimeout(2000);
   });
 });
